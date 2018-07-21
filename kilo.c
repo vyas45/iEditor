@@ -9,10 +9,16 @@
 #include <termios.h>
 #include <unistd.h>
 
-/*** data ***/
+
+/*** defines ****/
+
+#define KILO_VERSION "0.0.1"
 
 // Ctrl Key combinations
 #define CTRL_KEY(k) ((k) & 0x1f)
+
+
+/*** data ***/
 
 // Maintain out terminal state
 struct editorConfig {
@@ -183,16 +189,33 @@ void abFree(struct abuf *ab) {
 
 /*** output ***/
 
-
-
 /*
  * Draw ~ on left hand side of the screen at the end of the file
  */
 void editorDrawRows(struct abuf *ab) {
     int y;
     for (y=0; y<E.screenrows; y++) {
-        abAppend(ab, "~", 1);
+        if (y == E.screenrows / 3) {
+            char welcome[80];
+            int welcomelen = snprintf(welcome, sizeof(welcome),
+                  "Aniket's Editor -- version %s", KILO_VERSION);
+            if (welcomelen > E.screencols) welcomelen = E.screencols;
 
+            /* Center the welcome message 
+             * Divide the screen's width in half and subtract
+             * half of the string's length. This gives us the
+             * how far from left edge would we start printing
+             */
+            int padding = (E.screencols - welcomelen) / 2;
+            if (padding) {
+                abAppend(ab, "~", 1);
+                padding--;
+            }
+            while (padding--) abAppend(ab, " ", 1);
+            abAppend(ab, welcome, welcomelen);
+        } else {
+            abAppend(ab, "~", 1);
+        }
         // Clear lines one at a time rather than entire screen refresh
         abAppend(ab, "\x1b[K", 3);
         if (y < E.screenrows -1) {
@@ -243,8 +266,6 @@ void editorRefreshScreen() {
 
 
 /*** input ***/
-
-
 
 void editorProcessKeyPress() {
     char c = editorReadKey();
