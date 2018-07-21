@@ -188,13 +188,13 @@ void abFree(struct abuf *ab) {
 /*
  * Draw ~ on left hand side of the screen at the end of the file
  */
-void editorDrawRows() {
+void editorDrawRows(struct abuf *ab) {
     int y;
     for (y=0; y<E.screenrows; y++) {
-        write(STDOUT_FILENO, "~", 1);
+        abAppend(ab, "~", 1);
 
         if (y < E.screenrows -1) {
-            write(STDOUT_FILENO, "\r\n", 2);
+            abAppend(ab, "\r\n", 2);
         }
     }
 }
@@ -208,14 +208,30 @@ void editorDrawRows() {
  * Byte 4 -> "J" is to clear the screen (https://vt100.net/docs/vt100-ug/chapter3.html#ED"
  */
 void editorRefreshScreen() {
-    write(STDOUT_FILENO, "\x1b[2J", 4);
+    struct abuf ab = ABUF_INIT;
+
+    /*
+     * It might happen that cursor might show up for a second when
+     * the terminal is drawing to the screen
+     * So we hide the cursor and display again when ready
+     */
+    abAppend(&ab, "\x1b[?25l", 6);
+
+    abAppend(&ab, "\x1b[2J", 4);
 
     // "[2J" would leave the cursor at the end of screen, need to move
     // it to the top left corner
-    write(STDOUT_FILENO, "\x1b[H", 3);
+    abAppend(&ab, "\x1b[H", 3);
 
-    editorDrawRows();
-    write(STDOUT_FILENO, "\x1b[H", 3);
+    editorDrawRows(&ab);
+    abAppend(&ab, "\x1b[H", 3);
+
+    // Display the cursor again as we are ready
+    abAppend(&ab, "\x1b[?25h", 6);
+
+    // Finally write the append buffer at once
+    write(STDOUT_FILENO, ab.b, ab.len);
+    abFree(&ab);
 }
 
 
