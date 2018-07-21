@@ -193,6 +193,8 @@ void editorDrawRows(struct abuf *ab) {
     for (y=0; y<E.screenrows; y++) {
         abAppend(ab, "~", 1);
 
+        // Clear lines one at a time rather than entire screen refresh
+        abAppend(ab, "\x1b[K", 3);
         if (y < E.screenrows -1) {
             abAppend(ab, "\r\n", 2);
         }
@@ -217,7 +219,11 @@ void editorRefreshScreen() {
      */
     abAppend(&ab, "\x1b[?25l", 6);
 
-    abAppend(&ab, "\x1b[2J", 4);
+    /*
+     * We are clearing one line at a time
+     * so do not need to clear the entire screen
+     * abAppend(&ab, "\x1b[2J", 4);
+     */
 
     // "[2J" would leave the cursor at the end of screen, need to move
     // it to the top left corner
