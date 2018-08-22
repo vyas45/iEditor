@@ -48,6 +48,7 @@ typedef struct erow {
 // Maintain out terminal state
 struct editorConfig {
     int cx, cy; // Maintain cursor position
+    int rowoff; //The row offset the user is @
     int screenrows;
     int screencols;
     int numrows;
@@ -305,18 +306,34 @@ void abFree(struct abuf *ab) {
 
 /*** output ***/
 
+
+/*
+ * How to get the row offset ? 
+ * We check if the cursor has gone out of the screen, and if it has
+ * then, adjust E.rowoff so that the cursor is still in the screen
+ */
+void editorScroll() {
+    if (E.cy < E.rowoff) {
+        E.rowoff = E.cy;
+    }
+    if (E.cy >= E.rowoff + E.screenrows) {
+        E.rowoff = E.cy - E.screenrows + 1;
+    }
+}
+
 /*
  * Draw ~ on left hand side of the screen at the end of the file
  */
 void editorDrawRows(struct abuf *ab) {
     int y;
     for (y=0; y<E.screenrows; y++) {
+        int filerow = y + E.rowoff;
         /* 
          * Check if there is something in text buffer
          * If there is not then we draw the welcome page
          * else we draw the text buffer
          */
-        if (y >= E.numrows) {  
+        if (filerow >= E.numrows) {  
             if (E.numrows == 0 && y == E.screenrows / 3) {
                 char welcome[80];
                 int welcomelen = snprintf(welcome, sizeof(welcome),
@@ -339,9 +356,9 @@ void editorDrawRows(struct abuf *ab) {
                 abAppend(ab, "~", 1);
             } 
         } else {
-            int len = E.row[y].size;
+            int len = E.row[filerow].size;
             if (len > E.screencols) len = E.screencols;
-            abAppend(ab, E.row[y].chars, len);
+            abAppend(ab, E.row[filerow].chars, len);
         }
 
         // Clear lines one at a time rather than entire screen refresh
@@ -361,6 +378,11 @@ void editorDrawRows(struct abuf *ab) {
  * Byte 4 -> "J" is to clear the screen (https://vt100.net/docs/vt100-ug/chapter3.html#ED"
  */
 void editorRefreshScreen() {
+    /*
+     * Make sure we are IN the screen
+     */
+    editorScroll();
+
     struct abuf ab = ABUF_INIT;
 
     /*
@@ -418,7 +440,7 @@ void editorMoveCursor(int key) {
             }
             break;
         case ARROW_DOWN:
-            if (E.cy != E.screenrows -1) {
+            if (E.cy < E.numrows) {
                 E.cy++;
             }
             break;
@@ -470,6 +492,7 @@ void initEditor() {
     // Initialize the cursor position
     E.cx = 0;
     E.cy = 0;
+    E.rowoff = 0;
     E.numrows = 0;
     E.row = NULL;
 
